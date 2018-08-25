@@ -95,6 +95,12 @@ class Filtros(QWidget):
 		self.combo.addItem("Mosaico")
 		self.combo.addItem("Inverso")
 		self.combo.addItem("Alto contraste")
+		self.combo.addItem("Blur")
+		self.combo.addItem("Motion Blur")
+		self.combo.addItem("Encontrar bordes")
+		self.combo.addItem("Sharpen")
+		self.combo.addItem("Emboss")
+		self.combo.addItem("Mediana")
 
 		self.combo.move(25, 690)
 
@@ -108,7 +114,7 @@ class Filtros(QWidget):
 	@pyqtSlot()
 	def cargar_imagen(self):
 		try:
-			image = QFileDialog.getOpenFileName(self,'Single File','~/')
+			image = QFileDialog.getOpenFileName(self,'Open File','~/')
 			imagePath = image[0]
 			self.pixmap_ori = QPixmap(imagePath).scaled(610, 650, Qt.KeepAspectRatio, Qt.SmoothTransformation) 
 			self.pixmap_fil = QPixmap(imagePath).scaled(610, 650, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -159,41 +165,47 @@ class Filtros(QWidget):
 		filtro = self.filtro_escogido
 		
 		if filtro == "Tono de gris 1":
-			self.tono_gris1(self.pil_im_or.copy())
+			img = self.tono_gris1(self.pil_im_or.copy())
 		elif filtro == "Tono de gris 2":
-			self.tono_gris2(self.pil_im_or.copy())
+			img = self.tono_gris2(self.pil_im_or.copy())
 		elif filtro == "Tono de gris 3":
-			self.tono_gris3(self.pil_im_or.copy())
+			img = self.tono_gris3(self.pil_im_or.copy())
 		elif filtro == "Tono de gris 4":
-			self.tono_gris4(self.pil_im_or.copy())
+			img = self.tono_gris4(self.pil_im_or.copy())
 		elif filtro == "Tono de gris 5":
-			self.tono_gris5(self.pil_im_or.copy())
+			img = self.tono_gris5(self.pil_im_or.copy())
 		elif filtro == "Tono de gris 6":
-			self.tono_gris6(self.pil_im_or.copy())
+			img = self.tono_gris6(self.pil_im_or.copy())
 		elif filtro == "Tono de gris 7":
-			self.tono_gris7(self.pil_im_or.copy())
+			img = self.tono_gris7(self.pil_im_or.copy())
 		elif filtro == "Tono de gris 8":
-			self.tono_gris8(self.pil_im_or.copy())
+			img = self.tono_gris8(self.pil_im_or.copy())
 		elif filtro == "Brillo":
-			self.brillo(self.pil_im_or.copy(), self.slider.value())
+			img = self.brillo(self.pil_im_or.copy(), self.slider.value())
 		elif filtro == "Mosaico":
-			self.mosaico(self.pil_im_or.copy(), int(self.line_edit_n.text()), int(self.line_edit_m.text()))
+			img = self.mosaico(self.pil_im_or.copy(), int(self.line_edit_n.text()), int(self.line_edit_m.text()))
 		elif filtro == "Inverso":
-			self.inverso(self.pil_im_or.copy())
+			img = self.inverso(self.pil_im_or.copy())
 		elif filtro == "Alto contraste":
-			self.alto_contraste(self.pil_im_or.copy())
+			img = self.alto_contraste(self.pil_im_or.copy())
+		elif filtro == "Blur":
+			img = self.blur(self.pil_im_or.copy())
+		elif filtro == "Motion Blur":
+			img = self.motion_blur(self.pil_im_or.copy())
+		elif filtro == "Encontrar bordes":
+			img = self.edges(self.pil_im_or.copy())
+		elif filtro == "Sharpen":
+			img = self.sharpen(self.pil_im_or.copy())
+		elif filtro == "Emboss":
+			img = self.emboss(self.pil_im_or.copy())
+		elif filtro == "Mediana":
+			img = self.mediana(self.pil_im_or.copy())
 
-	#Nos sirve para obtener el componente rojo de un pixel.
-	def rojo(self, pixel):
-		return pixel[0]
+		self.label_img_fil.setPixmap(self.dame_pixmap(img))
+		self.label_img_fil.repaint()
 
-	#Nos sirve para obtener el componente verde de un pixel.
-	def verde(self, pixel):
-		return pixel[1]
 
-	#Nos sirve para obtener el componente azul de un pixel.
-	def azul(self, pixel):
-		return pixel[2]
+
 
 	def dame_pixmap(self, img):
 		qim = ImageQt(img)
@@ -205,95 +217,88 @@ class Filtros(QWidget):
 		for i in range(img.size[0]):    #columnas:
 			for j in range(img.size[1]):    #renglones
 				#Obtenemos el gris:
-				gris = int(self.rojo(pixels[i,j]) * 0.3 + self.verde(pixels[i,j]) * 0.59 + self.azul(pixels[i,j]) * 0.11)
+				gris = int(rojo(pixels[i,j]) * 0.3 + verde(pixels[i,j]) * 0.59 + azul(pixels[i,j]) * 0.11)
 				pixels[i,j] = (gris, gris, gris) #ponemos el nuevo color.
+		return img
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
 
 	def tono_gris2(self, img):
 		pixels = img.load() 
 		for i in range(img.size[0]):    
 			for j in range(img.size[1]):    
 				#Obtenemos el gris:
-				gris = (self.rojo(pixels[i,j]) + self.verde(pixels[i,j]) + self.azul(pixels[i,j]))//3
+				gris = (rojo(pixels[i,j]) + verde(pixels[i,j]) + azul(pixels[i,j]))//3
 				pixels[i,j] = (gris, gris, gris) #ponemos el nuevo color.
+		return img
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
+		
 
 	def tono_gris3(self, img):
 		pixels = img.load() 
 		for i in range(img.size[0]):    
 			for j in range(img.size[1]):   
 				#Obtenemos el gris:
-				maximo = max(self.rojo(pixels[i,j]), self.verde(pixels[i,j]), self.azul(pixels[i,j]))
-				minimo = min(self.rojo(pixels[i,j]), self.verde(pixels[i,j]), self.azul(pixels[i,j]))
+				maximo = max(rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j]))
+				minimo = min(rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j]))
 				gris = (maximo + minimo)//2
 				pixels[i,j] = (gris, gris, gris) #ponemos el nuevo color.
+		return img
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
+		
 
 	def tono_gris4(self, img):
 		pixels = img.load() 
 		for i in range(img.size[0]):    
 			for j in range(img.size[1]):    
 				#Obtenemos el gris:
-				gris = max(self.rojo(pixels[i,j]), self.verde(pixels[i,j]), self.azul(pixels[i,j]))
+				gris = max(rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j]))
 				pixels[i,j] = (gris, gris, gris) #ponemos el nuevo color.
+		return img
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
 
 	def tono_gris5(self, img):
 		pixels = img.load() 
 		for i in range(img.size[0]):    
 			for j in range(img.size[1]):    
 				#Obtenemos el gris:
-				gris = min(self.rojo(pixels[i,j]), self.verde(pixels[i,j]), self.azul(pixels[i,j]))
+				gris = min(rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j]))
 				pixels[i,j] = (gris, gris, gris) #ponemos el nuevo color.
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
+		return img
 
 	def tono_gris6(self, img):
 		pixels = img.load() 
 		for i in range(img.size[0]):    
 			for j in range(img.size[1]):    
-				pixels[i,j] = (self.rojo(pixels[i,j]), self.rojo(pixels[i,j]), self.rojo(pixels[i,j])) #ponemos el nuevo color.
+				pixels[i,j] = (rojo(pixels[i,j]), rojo(pixels[i,j]), rojo(pixels[i,j])) #ponemos el nuevo color.
+		return img
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
 
 	def tono_gris7(self, img):
 		pixels = img.load() 
 		for i in range(img.size[0]):    
 			for j in range(img.size[1]):    
-				pixels[i,j] = (self.verde(pixels[i,j]), self.verde(pixels[i,j]), self.verde(pixels[i,j])) #ponemos el nuevo color.
+				pixels[i,j] = (verde(pixels[i,j]), verde(pixels[i,j]), verde(pixels[i,j])) #ponemos el nuevo color.
+		return img
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
 		
 	def tono_gris8(self, img):
 		pixels = img.load() 
 		for i in range(img.size[0]):   
 			for j in range(img.size[1]):    
-				pixels[i,j] = (self.azul(pixels[i,j]), self.azul(pixels[i,j]), self.azul(pixels[i,j])) #ponemos el nuevo color.
+				pixels[i,j] = (azul(pixels[i,j]), azul(pixels[i,j]), azul(pixels[i,j])) #ponemos el nuevo color.
+		return img
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
 		
 	def brillo(self, img, cte):
 		pixels = img.load() 
 		for i in range(img.size[0]):   
 			for j in range(img.size[1]):    
-				pixels[i,j] = (self.azul(pixels[i,j]) + cte, 
-				self.azul(pixels[i,j]) + cte, 
-				self.azul(pixels[i,j]) + cte)
+				pixels[i,j] = (azul(pixels[i,j]) + cte, 
+				azul(pixels[i,j]) + cte, 
+				azul(pixels[i,j]) + cte)
+		return img
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
 		
 	def mosaico(self, img, n, m):
 		pixels = img.load() 
@@ -304,20 +309,18 @@ class Filtros(QWidget):
 					for x in range(i-n, i):
 						for y in range(j-m, j):
 							pixels[x,y] = (promedio[0], promedio[1], promedio[2]) #ponemos el nuevo color.
+		return img
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
 		
 	def inverso(self, img):
 		pixels = img.load() 
 		for i in range(img.size[0]):   
 			for j in range(img.size[1]):    
-				pixels[i,j] = ((self.azul(pixels[i,j]) - 255) * (-1), 
-					(self.azul(pixels[i,j]) - 255) * (-1), 
-					(self.azul(pixels[i,j]) - 255) * (-1)) 
+				pixels[i,j] = ((rojo(pixels[i,j]) - 255) * (-1), 
+					(verde(pixels[i,j]) - 255) * (-1), 
+					(azul(pixels[i,j]) - 255) * (-1)) 
+		return img
 		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
 	
 	def saca_promedio(self, pixels, i, j, n, m):
 		sumaR = 0
@@ -325,37 +328,229 @@ class Filtros(QWidget):
 		sumaA = 0
 		for x in range(i-n, i):
 			for y in range(j-m, j):
-				sumaR += self.rojo(pixels[x,y])
-				sumaV += self.verde(pixels[x,y]) 
-				sumaA += self.azul(pixels[x,y])
+				sumaR += rojo(pixels[x,y])
+				sumaV += verde(pixels[x,y]) 
+				sumaA += azul(pixels[x,y])
 		return [sumaR//(n*m), sumaV//(n*m), sumaA//(n*m)]
 
 	def alto_contraste(self, img):
-		pixels = img.load() 
-		for i in range(img.size[0]):    
-			for j in range(img.size[1]): 
-				gris = int(self.rojo(pixels[i,j]) * 0.3 + self.verde(pixels[i,j]) * 0.59 + self.azul(pixels[i,j]) * 0.11)
-				pixels[i,j] = (gris, gris, gris)
+		img = self.tono_gris1(img)
+		pixels = img.load()
+
 		for i in range(img.size[0]):    
 			for j in range(img.size[1]):
-				if self.rojo(pixels[i,j]) > 127:
+				if rojo(pixels[i,j]) > 127:
 					n_rojo = 255
 				else:
 					n_rojo = 0
-				if self.verde(pixels[i,j]) > 127:
+				if verde(pixels[i,j]) > 127:
 					n_verde = 255
 				else:
 					n_verde = 0
-				if self.azul(pixels[i,j]) > 127:
+				if azul(pixels[i,j]) > 127:
 					n_azul = 255
 				else:
 					n_azul = 0	
 
-				pixels[i,j] = (n_rojo, n_verde, n_azul)			
-		
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
-		self.label_img_fil.repaint()
+				pixels[i,j] = (n_rojo, n_verde, n_azul)
 
+		return img
+		
+
+	def blur(self, img):
+		pixels = img.load() 
+		for i in range(2, img.size[0]):   
+			for j in range(2, img.size[1]):
+				try:
+					n_rojo = (rojo(pixels[i, j-2])
+					+ rojo(pixels[i-1, j-1]) + rojo(pixels[i, j-1]) + rojo(pixels[i+1, j-1]) 
+					+ rojo(pixels[i-2, j]) + rojo(pixels[i-1, j]) + rojo(pixels[i, j]) + rojo(pixels[i+1, j]) + rojo(pixels[i+2, j]) 
+					+ rojo(pixels[i-1, j+1]) + rojo(pixels[i, j+1]) + rojo(pixels[i+1, j+1])
+					+ rojo(pixels[i, j+2]))//13
+					if n_rojo > 255:
+						n_rojo = 255
+					if n_rojo < 0:
+						n_rojo = 0
+					n_verde = (verde(pixels[i, j-2])
+					+ verde(pixels[i-1, j-1]) + verde(pixels[i, j-1]) + verde(pixels[i+1, j-1]) 
+					+ verde(pixels[i-2, j]) + verde(pixels[i-1, j]) + verde(pixels[i, j]) + verde(pixels[i+1, j]) + verde(pixels[i+2, j]) 
+					+ verde(pixels[i-1, j+1]) + verde(pixels[i, j+1]) + verde(pixels[i+1, j+1])
+					+ verde(pixels[i, j+2]))//13
+					if n_verde > 255:
+						n_verde = 255
+					if n_verde < 0:
+						n_verde = 0
+					n_azul = (azul(pixels[i, j-2])
+					+ azul(pixels[i-1, j-1]) + azul(pixels[i, j-1]) + azul(pixels[i+1, j-1]) 
+					+ azul(pixels[i-2, j]) + azul(pixels[i-1, j]) + azul(pixels[i, j]) + azul(pixels[i+1, j]) + azul(pixels[i+2, j]) 
+					+ azul(pixels[i-1, j+1]) + azul(pixels[i, j+1]) + azul(pixels[i+1, j+1])
+					+ azul(pixels[i, j+2]))//13
+					if n_azul > 255:
+						n_azul = 255
+					if n_azul < 0:
+						n_azul = 0
+					pixels[i,j] = (n_rojo, n_verde, n_azul)
+				except Exception:
+					pixels[i, j] = pixels[i, j]
+		return img
+		
+
+
+	def motion_blur(self, img):
+		pixels = img.load() 
+		for i in range(2, img.size[0]):   
+			for j in range(2, img.size[1]):
+				try:
+					n_rojo = (rojo(pixels[i-2, j-2]) + rojo(pixels[i-1, j-1]) + rojo(pixels[i, j]) 
+						+ rojo(pixels[i+1, j+1]) + rojo(pixels[i+2, j+2]))//5
+					if n_rojo > 255:
+						n_rojo = 255
+					if n_rojo < 0:
+						n_rojo = 0
+					n_verde = (verde(pixels[i-2, j-2]) + verde(pixels[i-1, j-1]) + verde(pixels[i, j]) 
+						+ verde(pixels[i+1, j+1]) + verde(pixels[i+2, j+2]))//5
+					if n_verde > 255:
+						n_verde = 255
+					if n_verde < 0:
+						n_verde = 0
+					n_azul = (azul(pixels[i-2, j-2]) + azul(pixels[i-1, j-1]) + azul(pixels[i, j]) 
+						+ azul(pixels[i+1, j+1]) + azul(pixels[i+2, j+2]))//5
+					if n_azul > 255:
+						n_azul = 255
+					if n_azul < 0:
+						n_azul = 0
+					pixels[i,j] = (n_rojo, n_verde, n_azul)
+				except Exception:
+					pixels[i, j] = pixels[i, j]
+		return img
+		
+
+	def edges(self, img):
+		pixels = img.load() 
+		for i in range(2, img.size[0]):   
+			for j in range(2, img.size[1]):
+				try:
+					n_rojo = ((rojo(pixels[i-2, j-2]) * (-1)) + (rojo(pixels[i-1, j-1]) * (-2)) + (rojo(pixels[i, j]) * (6)) 
+						+ (rojo(pixels[i+1, j+1]) * (-2)) + (rojo(pixels[i+2, j+2]) * (-1)))
+					if n_rojo > 255:
+						n_rojo = 255
+					if n_rojo < 0:
+						n_rojo = 0
+					n_verde = ((verde(pixels[i-2, j-2]) * (-1)) + (verde(pixels[i-1, j-1]) * (-2)) + (verde(pixels[i, j]) * (6)) 
+						+ (verde(pixels[i+1, j+1]) * (-2)) + (verde(pixels[i+2, j+2]) * (-1)))
+					if n_verde > 255:
+						n_verde = 255
+					if n_verde < 0:
+						n_verde = 0
+					n_azul = ((azul(pixels[i-2, j-2]) * (-1)) + (azul(pixels[i-1, j-1]) * (-2)) + (azul(pixels[i, j]) * (6)) 
+						+ (azul(pixels[i+1, j+1]) * (-2)) + (azul(pixels[i+2, j+2]) * (-1)))
+					if n_azul > 255:
+						n_azul = 255
+					if n_azul < 0:
+						n_azul = 0
+					pixels[i,j] = (n_rojo, n_verde, n_azul)
+				except Exception:
+					pixels[i, j] = pixels[i, j]
+		return img
+		
+
+	def sharpen(self, img):
+		pixels = img.load() 
+		for i in range(1, img.size[0]):   
+			for j in range(1, img.size[1]):
+				try:
+					n_rojo = ((rojo(pixels[i-1, j-1]) * (-1)) + (rojo(pixels[i, j-1]) * (-1)) + (rojo(pixels[i+1, j-1]) * (-1))
+						+ (rojo(pixels[i-1, j]) * (-1)) + (rojo(pixels[i, j]) * 9) + (rojo(pixels[i+1, j]) * (-1))
+						+ (rojo(pixels[i-1, j+1]) * (-1)) + (rojo(pixels[i, j+1]) * (-1)) + (rojo(pixels[i+1, j+1]) * (-1)))
+					if n_rojo > 255:
+						n_rojo = 255
+					if n_rojo < 0:
+						n_rojo = 0
+					n_verde = ((verde(pixels[i-1, j-1]) * (-1)) + (verde(pixels[i, j-1]) * (-1)) + (verde(pixels[i+1, j-1]) * (-1))
+						+ (verde(pixels[i-1, j]) * (-1)) + (verde(pixels[i, j]) * 9) + (verde(pixels[i+1, j]) * (-1))
+						+ (verde(pixels[i-1, j+1]) * (-1)) + (verde(pixels[i, j+1]) * (-1)) + (verde(pixels[i+1, j+1]) * (-1)))
+					if n_verde > 255:
+						n_verde = 255
+					if n_verde < 0:
+						n_verde = 0
+					n_azul = ((azul(pixels[i-1, j-1]) * (-1)) + (azul(pixels[i, j-1]) * (-1)) + (azul(pixels[i+1, j-1]) * (-1))
+						+ (azul(pixels[i-1, j]) * (-1)) + (azul(pixels[i, j]) * 9) + (azul(pixels[i+1, j]) * (-1))
+						+ (azul(pixels[i-1, j+1]) * (-1)) + (azul(pixels[i, j+1]) * (-1)) + (azul(pixels[i+1, j+1]) * (-1)))
+					if n_azul > 255:
+						n_azul = 255
+					if n_azul < 0:
+						n_azul = 0
+
+					pixels[i,j] = (n_rojo, n_verde, n_azul)
+				except Exception:
+					pixels[i, j] = pixels[i, j]
+		return img				
+
+	def emboss(self, img):
+		pixels = img.load() 
+		for i in range(1, img.size[0]):   
+			for j in range(1, img.size[1]):
+				try:
+					n_rojo = ((rojo(pixels[i-1, j-1]) * (-1)) + (rojo(pixels[i, j-1]) * (-1))
+						+ (rojo(pixels[i-1, j]) * (-1)) + rojo(pixels[i+1, j]) + rojo(pixels[i, j+1]) + rojo(pixels[i+1, j+1]))
+					if n_rojo > 255:
+						n_rojo = 255
+					if n_rojo < 0:
+						n_rojo = 0
+					n_verde = ((verde(pixels[i-1, j-1]) * (-1)) + (verde(pixels[i, j-1]) * (-1))
+						+ (verde(pixels[i-1, j]) * (-1)) + verde(pixels[i+1, j]) + verde(pixels[i, j+1]) + verde(pixels[i+1, j+1]))
+					if n_verde > 255:
+						n_verde = 255
+					if n_verde < 0:
+						n_verde = 0
+					n_azul = ((azul(pixels[i-1, j-1]) * (-1)) + (azul(pixels[i, j-1]) * (-1)) + (azul(pixels[i-1, j]) * (-1)) 
+						+ azul(pixels[i+1, j]) + azul(pixels[i, j+1]) + azul(pixels[i+1, j+1]))
+					if n_azul > 255:
+						n_azul = 255
+					if n_azul < 0:
+						n_azul = 0
+
+					pixels[i,j] = (n_rojo, n_verde, n_azul)
+				except Exception:
+					pixels[i, j] = pixels[i, j]
+		return img
+
+	def mediana(self, img):
+		pixels = img.load() 
+		for i in range(1, img.size[0]):   
+			for j in range(1, img.size[1]):
+				try:
+					m = 9//2
+					n_rojo = [rojo(pixels[i-1, j-1]), rojo(pixels[i, j-1]), rojo(pixels[i+1, j-1])
+						 ,rojo(pixels[i-1, j]),  rojo(pixels[i, j]), rojo(pixels[i+1, j])
+						 ,rojo(pixels[i-1, j+1]), rojo(pixels[i, j+1]), rojo(pixels[i+1, j+1])]
+					n_rojo.sort()
+					n_verde = [verde(pixels[i-1, j-1]), verde(pixels[i, j-1]), verde(pixels[i+1, j-1])
+						 ,verde(pixels[i-1, j]),  verde(pixels[i, j]), verde(pixels[i+1, j])
+						 ,verde(pixels[i-1, j+1]), verde(pixels[i, j+1]), verde(pixels[i+1, j+1])]
+					n_verde.sort()
+					n_azul = [azul(pixels[i-1, j-1]), azul(pixels[i, j-1]), azul(pixels[i+1, j-1])
+						 ,azul(pixels[i-1, j]),  azul(pixels[i, j]), azul(pixels[i+1, j])
+						 ,azul(pixels[i-1, j+1]), azul(pixels[i, j+1]), azul(pixels[i+1, j+1])]
+					n_azul.sort()
+
+					pixels[i,j] = (n_rojo[m], n_verde[m], n_azul[m])
+
+				except Exception:
+					pixels[i, j] = pixels[i, j]
+		return img
+
+#Nos sirve para obtener el componente rojo de un pixel.
+def rojo(pixel):
+	return pixel[0]
+
+#Nos sirve para obtener el componente verde de un pixel.
+def verde(pixel):
+	return pixel[1]
+
+#Nos sirve para obtener el componente azul de un pixel.
+def azul(pixel):
+	return pixel[2]
 
 if __name__ == '__main__':
 	app = QApplication(sys.argv)
