@@ -3,9 +3,10 @@ import io
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QFileDialog, QComboBox, QPushButton, QSlider, QVBoxLayout, QLineEdit
 from PyQt5.QtGui import QIcon, QPixmap, QImage
-from PyQt5.QtCore import pyqtSlot, QBuffer, Qt
-from PIL import Image
+from PyQt5.QtCore import pyqtSlot, QBuffer, Qt, QByteArray
+from PIL import Image, ImageFont, ImageDraw
 from PIL.ImageQt import ImageQt
+from pathlib import Path
 
 '''
  Programa que nos ayuda a poner filtros básicos a imágenes, usando PyQt para crear la interfaz gráfica. (La cual es muy básica)
@@ -55,6 +56,14 @@ class Filtros(QWidget):
 		self.lbl_bri.close()
 		self.slider.close()
 
+		self.input = QLineEdit(self)
+		self.input.move(540, 694)
+
+		self.lbl_text = QLabel("Escriba el texto que quiera mostrar", self)
+		self.lbl_text.move(450, 677)
+		self.lbl_text.close()
+		self.input.close()
+
 		self.label_img_ori = QLabel(self)
 		self.label_img_fil = QLabel(self)
 		self.label_img_ori.setGeometry(QtCore.QRect(5, 28, 610, 650))
@@ -72,25 +81,24 @@ class Filtros(QWidget):
 
 		self.button_cargar.clicked.connect(self.cargar_imagen)
 
-		self.button_aplicar = QPushButton('Aplicar Tono de gris 1', self)
+		self.button_guardar = QPushButton('Guardar Imagen', self)
+		self.button_guardar.setToolTip('Guarde la imagen con filtro aplicado.')
+		self.button_guardar.move(150, 1)
+
+		self.button_guardar.clicked.connect(self.guardar_imagen)
+
+		self.button_aplicar = QPushButton('Aplicar: Quitar marca de agua', self)
 		self.button_aplicar.setToolTip('Aplique el filtro que escogió.')
 		self.button_aplicar.move(230,690)
 
-		self.filtro_escogido = "Tono de gris 1" #El que está por default.
+		self.filtro_escogido = "Quitar marca de agua" #El que está por default.
 
 		self.button_aplicar.clicked.connect(self.aplica_filtro)
 
 		self.combo = QComboBox(self)
 
 		# Lista de filtros.
-		self.combo.addItem("Tono de gris 1")
-		self.combo.addItem("Tono de gris 2")
-		self.combo.addItem("Tono de gris 3")
-		self.combo.addItem("Tono de gris 4")
-		self.combo.addItem("Tono de gris 5")
-		self.combo.addItem("Tono de gris 6")
-		self.combo.addItem("Tono de gris 7")
-		self.combo.addItem("Tono de gris 8")
+		self.combo.addItem("Quitar marca de agua")
 		self.combo.addItem("Brillo")
 		self.combo.addItem("Mosaico")
 		self.combo.addItem("Inverso")
@@ -101,6 +109,21 @@ class Filtros(QWidget):
 		self.combo.addItem("Sharpen")
 		self.combo.addItem("Emboss")
 		self.combo.addItem("Mediana")
+		self.combo.addItem("Letra a color")
+		self.combo.addItem("Letra tono de gris")
+		self.combo.addItem("Letras blanco y negro")
+		self.combo.addItem("Letras en color")
+		self.combo.addItem("Texto definido")
+		self.combo.addItem("Naipes")
+		self.combo.addItem("Domino")
+		self.combo.addItem("Tono de gris 1")
+		self.combo.addItem("Tono de gris 2")
+		self.combo.addItem("Tono de gris 3")
+		self.combo.addItem("Tono de gris 4")
+		self.combo.addItem("Tono de gris 5")
+		self.combo.addItem("Tono de gris 6")
+		self.combo.addItem("Tono de gris 7")
+		self.combo.addItem("Tono de gris 8")
 
 		self.combo.move(25, 690)
 
@@ -125,11 +148,38 @@ class Filtros(QWidget):
 			img = QImage(imagePath)
 			buffer = QBuffer()
 			buffer.open(QBuffer.ReadWrite)
-			img.save(buffer, "PNG")
+			img.save(buffer, Path(imagePath).suffix[1:])
 			self.pil_im_or = Image.open(io.BytesIO(buffer.data())) 
 			self.label_img_fil.setPixmap(QPixmap())
 		except Exception:
 			print("Error de lectura de archivo.")
+
+
+	'''
+		Método que guarda la imagen actual fitrada.
+	'''
+	@pyqtSlot()
+	def guardar_imagen(self):
+		try:
+			options = QFileDialog.Options()
+			options |= QFileDialog.DontUseNativeDialog
+			file_name, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()","",'Sólo en PNG (*.png)', options=options)
+			if file_name:
+				
+				pixmap = self.pixmap_fil
+
+				# Save QPixmap to QByteArray via QBuffer.
+				byte_array = QByteArray()
+				buffer = QBuffer(byte_array)
+				buffer.open(QBuffer.ReadWrite)
+				pixmap.save(buffer, Path(file_name).suffix[1:])
+
+				with open(file_name, 'wb') as out_file:
+					out_file.write(byte_array)
+
+		except Exception:
+			print("Error de lectura/escritura de archivo.")
+
 	'''
 		Método que cambia algunos Widgets al escoger un filtro en el combo.
 	'''
@@ -143,10 +193,22 @@ class Filtros(QWidget):
 			self.lbl_mos.close()
 			self.line_edit_n.close()
 			self.line_edit_m.close()
+			self.lbl_text.close()
+			self.input.close()
 		elif text == "Mosaico":
 			self.lbl_mos.show()
 			self.line_edit_n.show()
 			self.line_edit_m.show()
+			self.slider.close()
+			self.lbl_bri.close()
+			self.lbl_text.close()
+			self.input.close()
+		elif text == "Texto definido":
+			self.lbl_text.show()
+			self.input.show()
+			self.lbl_mos.close()
+			self.line_edit_n.close()
+			self.line_edit_m.close()
 			self.slider.close()
 			self.lbl_bri.close()			
 		else:
@@ -155,6 +217,8 @@ class Filtros(QWidget):
 			self.lbl_mos.close()
 			self.line_edit_n.close()
 			self.line_edit_m.close()
+			self.lbl_text.close()
+			self.input.close()
 
 	'''
 		Método que según un filtro fijado, lo aplica a la imagen cargada en el programa.
@@ -163,7 +227,7 @@ class Filtros(QWidget):
 	def aplica_filtro(self):
 
 		filtro = self.filtro_escogido
-		
+
 		if filtro == "Tono de gris 1":
 			img = self.tono_gris1(self.pil_im_or.copy())
 		elif filtro == "Tono de gris 2":
@@ -200,8 +264,25 @@ class Filtros(QWidget):
 			img = self.emboss(self.pil_im_or.copy())
 		elif filtro == "Mediana":
 			img = self.mediana(self.pil_im_or.copy())
-
-		self.label_img_fil.setPixmap(self.dame_pixmap(img))
+		elif filtro == "Letra a color":
+			img = self.letra_color(self.pil_im_or.copy())
+		elif filtro == "Letra tono de gris":
+			img = self.letra_tono_gris(self.pil_im_or.copy())
+		elif filtro == "Letras blanco y negro":
+			img = self.letras_bn(self.pil_im_or.copy())
+		elif filtro == "Letras en color":
+			img = self.letras_c(self.pil_im_or.copy())
+		elif filtro == "Texto definido":
+			img = self.texto_def(self.pil_im_or.copy(), self.input.text())
+		elif filtro == "Naipes":
+			img = self.naipes(self.pil_im_or.copy())
+		elif filtro == "Domino":
+			img = self.domino(self.pil_im_or.copy())
+		elif filtro == "Quitar marca de agua":
+			img = self.quitar_marca(self.pil_im_or.copy())
+		img.show()
+		self.pixmap_fil = self.dame_pixmap(img)
+		self.label_img_fil.setPixmap(self.pixmap_fil)
 		self.label_img_fil.repaint()
 
 
@@ -539,6 +620,259 @@ class Filtros(QWidget):
 				except Exception:
 					pixels[i, j] = pixels[i, j]
 		return img
+
+	def letra_color(self, img):
+		n=8
+		m=8
+		mosaico = self.mosaico(img, n, m)
+		pixels = mosaico.load()
+		rejilla = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		draw = ImageDraw.Draw(rejilla)
+		font = ImageFont.truetype("fonts/courbd.ttf", 10)
+		for i in range(0, mosaico.size[0], 8):
+			for j in range(0, mosaico.size[1], 8):
+				draw.text((i, j), "X", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+		
+		
+		return rejilla
+		
+	def letra_tono_gris(self, img):
+		n=8
+		m=8
+		tono_gris = self.tono_gris1(img)
+		mosaico = self.mosaico(tono_gris, n, m)
+
+		pixels = mosaico.load()
+		rejilla = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		draw = ImageDraw.Draw(rejilla)
+		font = ImageFont.truetype("fonts/courbd.ttf", 10)
+		for i in range(0, mosaico.size[0], 8):
+			for j in range(0, mosaico.size[1], 8):
+				draw.text((i, j), "X", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+		
+		
+		return rejilla
+
+	def letras_bn(self, img):
+		n=8
+		m=8
+		tgris = self.tono_gris1(img)
+		mosaico = self.mosaico(tgris, n, m)
+
+		pixels = mosaico.load()
+		rejilla = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		draw = ImageDraw.Draw(rejilla)
+		font = ImageFont.truetype("fonts/courbd.ttf", 10)
+		for i in range(0, mosaico.size[0], 8):
+			for j in range(0, mosaico.size[1], 8):
+				prom = ((rojo(pixels[i, j]) + verde(pixels[i, j]) + azul(pixels[i, j]))//3)
+				if (prom >= 0 and prom < 16): 
+					draw.text((i, j), "M", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 16 and prom < 32): 
+					draw.text((i, j), "N", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 32 and prom < 48): 
+					draw.text((i, j), "H", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 48 and prom < 64): 
+					draw.text((i, j), "#", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 64 and prom < 80): 
+					draw.text((i, j), "Q", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 80 and prom < 96): 
+					draw.text((i, j), "U", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 96 and prom < 112): 
+					draw.text((i, j), "A", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 112 and prom < 128): 
+					draw.text((i, j), "D", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 128 and prom < 144): 
+					draw.text((i, j), "O", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 144 and prom < 160): 
+					draw.text((i, j), "Y", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 160 and prom < 176): 
+					draw.text((i, j), "2", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 176 and prom < 192): 
+					draw.text((i, j), "$", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 192 and prom < 208): 
+					draw.text((i, j), "%", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 208 and prom < 224): 
+					draw.text((i, j), "+", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 224 and prom < 240): 
+					draw.text((i, j), "_", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 240 and prom < 256): 
+					draw.text((i, j), " ", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+
+		
+		return rejilla
+
+	def letras_c(self, img):
+		n=8
+		m=8
+
+		mosaico = self.mosaico(img, n, m)
+
+		pixels = mosaico.load()
+		rejilla = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		draw = ImageDraw.Draw(rejilla)
+		font = ImageFont.truetype("fonts/courbd.ttf", 10)
+		for i in range(0, mosaico.size[0], 8):
+			for j in range(0, mosaico.size[1], 8):
+				prom = ((rojo(pixels[i, j]) + verde(pixels[i, j]) + azul(pixels[i, j]))//3)
+				if (prom >= 0 and prom < 16): 
+					draw.text((i, j), "M", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 16 and prom < 32): 
+					draw.text((i, j), "N", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 32 and prom < 48): 
+					draw.text((i, j), "H", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 48 and prom < 64): 
+					draw.text((i, j), "#", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 64 and prom < 80): 
+					draw.text((i, j), "Q", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 80 and prom < 96): 
+					draw.text((i, j), "U", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 96 and prom < 112): 
+					draw.text((i, j), "A", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 112 and prom < 128): 
+					draw.text((i, j), "D", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 128 and prom < 144): 
+					draw.text((i, j), "O", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 144 and prom < 160): 
+					draw.text((i, j), "Y", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 160 and prom < 176): 
+					draw.text((i, j), "2", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 176 and prom < 192): 
+					draw.text((i, j), "$", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 192 and prom < 208): 
+					draw.text((i, j), "%", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 208 and prom < 224): 
+					draw.text((i, j), "+", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 224 and prom < 240): 
+					draw.text((i, j), "_", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 240 and prom < 256): 
+					draw.text((i, j), " ", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+		
+		
+		return rejilla
+
+
+	def texto_def(self, img, cad):
+		try:
+			n=8
+			m=8
+			mosaico = self.mosaico(img.copy(), n, m)
+			pixels = mosaico.load()
+			rejilla = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+			draw = ImageDraw.Draw(rejilla)
+			font = ImageFont.truetype("fonts/courbd.ttf", 10)
+			for i in range(0, mosaico.size[0], (len(cad) * 6) ):
+				for j in range(0, mosaico.size[1], 8):
+					draw.text((i, j), cad, (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+			
+			
+			return rejilla
+		except Exception:
+			print("ERROR! Escoja entrada válida.")
+			return img
+
+	def naipes(self, img):
+		n=8
+		m=8
+
+		mosaico = self.mosaico(img, n, m)
+
+		pixels = mosaico.load()
+		rejilla = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		draw = ImageDraw.Draw(rejilla)
+		font = ImageFont.truetype("fonts/PLAYCRDS.TTF", 13)
+		for i in range(0, mosaico.size[0], 10):
+			for j in range(0, mosaico.size[1], 10):
+				prom = ((rojo(pixels[i, j]) + verde(pixels[i, j]) + azul(pixels[i, j]))//3)
+				if (prom >= 0 and prom < 23): 
+					draw.text((i, j), "Z", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 23 and prom < 46): 
+					draw.text((i, j), "W", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 46 and prom < 69): 
+					draw.text((i, j), "V", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 69 and prom < 92): 
+					draw.text((i, j), "U", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 92 and prom < 115): 
+					draw.text((i, j), "T", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 115 and prom < 138): 
+					draw.text((i, j), "S", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 138 and prom < 161): 
+					draw.text((i, j), "R", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 161 and prom < 184): 
+					draw.text((i, j), "Q", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 184 and prom < 207): 
+					draw.text((i, j), "P", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 207 and prom < 230): 
+					draw.text((i, j), "O", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 230 and prom < 256): 
+					draw.text((i, j), "N", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+		
+		
+		return rejilla
+
+	def domino(self, img):
+		n=8
+		m=8
+
+		mosaico = self.mosaico(img, n, m)
+
+		pixels = mosaico.load()
+		rejilla = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		draw = ImageDraw.Draw(rejilla)
+		font = ImageFont.truetype("fonts/Lasvbld_.ttf", 10)
+		for i in range(0, mosaico.size[0], 8):
+			for j in range(0, mosaico.size[1], 8):
+				prom = ((rojo(pixels[i, j]) + verde(pixels[i, j]) + azul(pixels[i, j]))//3)
+				if (prom >= 0 and prom < 37): 
+					draw.text((i, j), "6", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 37 and prom < 74): 
+					draw.text((i, j), "5", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 74 and prom < 111): 
+					draw.text((i, j), "4", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 111 and prom < 148): 
+					draw.text((i, j), "3", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 148 and prom < 185): 
+					draw.text((i, j), "2", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 185 and prom < 222): 
+					draw.text((i, j), "1", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+				elif(prom >= 222 and prom < 256): 
+					draw.text((i, j), "0", (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])), font=font)
+		
+				
+		return rejilla
+
+	def quitar_marca(self, img):
+		pixels = img.load()
+		# Quitamos la marca de agua de las partes en las que choca con lo que no es blanco. 
+		for i in range(img.size[0]):    
+			for j in range(img.size[1]): 
+				if(not es_gris(pixels[i,j])):
+					if(rojo(pixels[i,j]) > verde(pixels[i,j]) and rojo(pixels[i,j]) > azul(pixels[i,j])):
+						pixels[i,j] = (rojo(pixels[i,j]), rojo(pixels[i,j]), rojo(pixels[i,j]))
+					elif(verde(pixels[i,j]) > azul(pixels[i,j])):
+						pixels[i,j] = (verde(pixels[i,j]), verde(pixels[i,j]), verde(pixels[i,j]))  
+					else:
+						pixels[i,j] = (azul(pixels[i,j]), azul(pixels[i,j]), azul(pixels[i,j]))
+				else:
+					pixels[i,j] = (rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j])) #ponemos el nuevo color.
+		mosaico = self.mosaico(img, 1, 2)
+		pixels2 = mosaico.load()
+		# Hacemos un efecto pequeño de mosaico y obtenemos color promedio intentando quitar la marca de agua.
+		for i in range(0, mosaico.size[0]):
+			for j in range(0, mosaico.size[1]):
+				prom = ((rojo(pixels2[i, j]) + verde(pixels2[i, j]) + azul(pixels2[i, j]))/3)
+				if (prom >= 206.5):
+					pixels2[i,j] = (255,255,255)
+				else:
+					pixels2[i,j] = (rojo(pixels2[i,j]), verde(pixels2[i,j]), azul(pixels2[i,j]))
+
+		return mosaico
+
+def es_gris(pixel):
+	if(rojo(pixel) == verde(pixel) and rojo(pixel) == azul(pixel) and azul(pixel) == verde(pixel)):
+		return True
+	else:
+		return False
 
 #Nos sirve para obtener el componente rojo de un pixel.
 def rojo(pixel):
