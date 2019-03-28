@@ -1,5 +1,7 @@
 import sys
 import io
+import math
+import random
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QFileDialog, QComboBox, QPushButton, QSlider, QVBoxLayout, QLineEdit
 from PyQt5.QtGui import QIcon, QPixmap, QImage
@@ -32,14 +34,17 @@ class Filtros(QWidget):
 		self.line_edit_n = QLineEdit(self)
 		self.line_edit_m = QLineEdit(self)
 
-		self.line_edit_m.move(410, 694)
-		self.line_edit_n.move(540, 694)
+		self.line_edit_m.move(440, 694)
+		self.line_edit_n.move(570, 694)
 		self.line_edit_n.close()
 		self.line_edit_m.close()
 
 		self.lbl_mos = QLabel("Escriba la región deseada (n x m)", self)
-		self.lbl_mos.move(420, 677)
+		self.lbl_mos.move(450, 677)
 		self.lbl_mos.close()
+
+		self.colores_paquete = []
+		self.imgs_paquete = []
 
 		self.slider = QSlider(Qt.Horizontal, self)
 		self.slider.setFocusPolicy(Qt.StrongFocus)
@@ -56,6 +61,8 @@ class Filtros(QWidget):
 		self.lbl_bri.close()
 		self.slider.close()
 
+		self.path_fotomosaico = None
+
 		self.input = QLineEdit(self)
 		self.input.move(540, 694)
 
@@ -63,6 +70,10 @@ class Filtros(QWidget):
 		self.lbl_text.move(450, 677)
 		self.lbl_text.close()
 		self.input.close()
+
+		self.lbl_text_luz = QLabel("Escriba el peso (de 1 a 7)", self)
+		self.lbl_text_luz.move(450, 677)
+		self.lbl_text_luz.close()
 
 		self.label_img_ori = QLabel(self)
 		self.label_img_fil = QLabel(self)
@@ -81,23 +92,53 @@ class Filtros(QWidget):
 
 		self.button_cargar.clicked.connect(self.cargar_imagen)
 
+		self.button_cargar_mos = QPushButton('Cargar conjunto de imágenes', self)
+		self.button_cargar_mos.setToolTip('Selecciona una carpeta de imágenes.')
+		self.button_cargar_mos.move(400,690)
+
+		self.button_cargar_mos.clicked.connect(self.cargar_paquete)
+		self.button_cargar_mos.close()
+
+		self.colores_r = [(0,0,255), (255,255,255), (255,255,0), (0,128,0), (255,165,0), (255,0,0), (220,209,43), (220, 43, 220), (43, 49, 220), (149, 66, 50), (75, 49, 202), (6, 97, 12), (0, 0, 0), (176, 42, 225), (220, 43, 220), (42, 225, 200), (28, 37, 36), (84, 58, 64)]
 		self.button_guardar = QPushButton('Guardar Imagen', self)
 		self.button_guardar.setToolTip('Guarde la imagen con filtro aplicado.')
 		self.button_guardar.move(150, 1)
 
 		self.button_guardar.clicked.connect(self.guardar_imagen)
 
-		self.button_aplicar = QPushButton('Aplicar: Quitar marca de agua', self)
+		self.button_aplicar = QPushButton('Aplicar...', self)
 		self.button_aplicar.setToolTip('Aplique el filtro que escogió.')
 		self.button_aplicar.move(230,690)
 
-		self.filtro_escogido = "Quitar marca de agua" #El que está por default.
+		self.filtro_escogido = ""
+		self.num_colors_rubik = "256 colores" #rubik
 
 		self.button_aplicar.clicked.connect(self.aplica_filtro)
+
+		self.combo_rubik = QComboBox(self)
+		self.combo_rubik.addItem("256 colores")
+		self.combo_rubik.addItem("18 colores")
+		self.combo_rubik.close()
+
+		self.combo_rubik.activated[str].connect(self.onActivated_r) #rubik
+
+		self.combo_rubik.move(400, 694)
 
 		self.combo = QComboBox(self)
 
 		# Lista de filtros.
+		self.combo.addItem("Escoja un filtro")
+		self.combo.addItem("Fotomosaico")
+		self.combo.addItem("Random Dithering")
+		self.combo.addItem("Rubik")
+		self.combo.addItem("Recursiva /C")
+		self.combo.addItem("Recursiva /T")				
+		self.combo.addItem("Luz negra")		
+		self.combo.addItem("AT&T")
+		self.combo.addItem("Ecualizar imagen")
+		self.combo.addItem("Semitonos A")
+		self.combo.addItem("Semitonos B")
+		self.combo.addItem("Semitonos C")
 		self.combo.addItem("Quitar marca de agua")
 		self.combo.addItem("Brillo")
 		self.combo.addItem("Mosaico")
@@ -145,12 +186,18 @@ class Filtros(QWidget):
 			self.label_img_ori.setPixmap(self.pixmap_ori)
 
 			#Para poder modificarla con PIL.
-			img = QImage(imagePath)
-			buffer = QBuffer()
-			buffer.open(QBuffer.ReadWrite)
-			img.save(buffer, Path(imagePath).suffix[1:])
-			self.pil_im_or = Image.open(io.BytesIO(buffer.data())) 
+			self.pil_im_or = self.dame_img_PIL(imagePath)
 			self.label_img_fil.setPixmap(QPixmap())
+		except Exception:
+			print("Error de lectura de archivo.")
+
+	'''
+		Método que carga un paquete de imágenes y obtiene información de ellas para el fotomosaico posterior.
+	'''
+	@pyqtSlot()
+	def cargar_paquete(self):
+		try:
+			self.path_fotomosaico = QFileDialog.getOpenFileName(self, 'Open File', '~/', 'txt(*.txt)')
 		except Exception:
 			print("Error de lectura de archivo.")
 
@@ -195,7 +242,10 @@ class Filtros(QWidget):
 			self.line_edit_m.close()
 			self.lbl_text.close()
 			self.input.close()
-		elif text == "Mosaico":
+			self.lbl_text_luz.close()
+			self.combo_rubik.close()
+			self.button_cargar_mos.close()
+		elif text == "Mosaico" or text == "Semitonos A" or text == "Semitonos A" or text == "Semitonos B" or text == "Semitonos C" or text == "Recursiva /C" or text == "Recursiva /T":
 			self.lbl_mos.show()
 			self.line_edit_n.show()
 			self.line_edit_m.show()
@@ -203,6 +253,9 @@ class Filtros(QWidget):
 			self.lbl_bri.close()
 			self.lbl_text.close()
 			self.input.close()
+			self.lbl_text_luz.close()
+			self.combo_rubik.close()
+			self.button_cargar_mos.close()
 		elif text == "Texto definido":
 			self.lbl_text.show()
 			self.input.show()
@@ -210,7 +263,43 @@ class Filtros(QWidget):
 			self.line_edit_n.close()
 			self.line_edit_m.close()
 			self.slider.close()
-			self.lbl_bri.close()			
+			self.lbl_bri.close()
+			self.lbl_text_luz.close()
+			self.combo_rubik.close()
+			self.button_cargar_mos.close()
+		elif text == "Luz negra":
+			self.lbl_text_luz.show()
+			self.lbl_text.close()
+			self.input.show()
+			self.lbl_mos.close()
+			self.line_edit_n.close()
+			self.line_edit_m.close()
+			self.slider.close()
+			self.lbl_bri.close()
+			self.combo_rubik.close()
+			self.button_cargar_mos.close()
+		elif text == "Rubik":
+			self.lbl_text_luz.close()
+			self.lbl_text.close()
+			self.input.close()
+			self.lbl_mos.close()
+			self.line_edit_n.close()
+			self.line_edit_m.close()
+			self.slider.close()
+			self.lbl_bri.close()
+			self.combo_rubik.show()
+			self.button_cargar_mos.close()
+		elif text == "Fotomosaico":
+			self.lbl_text_luz.close()
+			self.lbl_text.close()
+			self.input.close()
+			self.lbl_mos.close()
+			self.line_edit_n.close()
+			self.line_edit_m.close()
+			self.slider.close()
+			self.lbl_bri.close()
+			self.combo_rubik.close()
+			self.button_cargar_mos.show()
 		else:
 			self.slider.close()
 			self.lbl_bri.close()
@@ -219,74 +308,109 @@ class Filtros(QWidget):
 			self.line_edit_m.close()
 			self.lbl_text.close()
 			self.input.close()
+			self.lbl_text_luz.close()
+			self.combo_rubik.close()
+			self.button_cargar_mos.close()
+
+	def onActivated_r(self, text): #rubik
+		self.num_colors_rubik = text #rubik
 
 	'''
 		Método que según un filtro fijado, lo aplica a la imagen cargada en el programa.
 	'''
 	@pyqtSlot()
 	def aplica_filtro(self):
-
+		#try:
 		filtro = self.filtro_escogido
+		if filtro != "":
+			if filtro == "Tono de gris 1":
+				img = self.tono_gris1(self.pil_im_or.copy())
+			elif filtro == "Tono de gris 2":
+				img = self.tono_gris2(self.pil_im_or.copy())
+			elif filtro == "Tono de gris 3":
+				img = self.tono_gris3(self.pil_im_or.copy())
+			elif filtro == "Tono de gris 4":
+				img = self.tono_gris4(self.pil_im_or.copy())
+			elif filtro == "Tono de gris 5":
+				img = self.tono_gris5(self.pil_im_or.copy())
+			elif filtro == "Tono de gris 6":
+				img = self.tono_gris6(self.pil_im_or.copy())
+			elif filtro == "Tono de gris 7":
+				img = self.tono_gris7(self.pil_im_or.copy())
+			elif filtro == "Tono de gris 8":
+				img = self.tono_gris8(self.pil_im_or.copy())
+			elif filtro == "Brillo":
+				img = self.brillo(self.pil_im_or.copy(), self.slider.value())
+			elif filtro == "Mosaico":
+				img = self.mosaico(self.pil_im_or.copy(), int(self.line_edit_n.text()), int(self.line_edit_m.text()))
+			elif filtro == "Inverso":
+				img = self.inverso(self.pil_im_or.copy())
+			elif filtro == "Alto contraste":
+				img = self.alto_contraste(self.pil_im_or.copy())
+			elif filtro == "Blur":
+				img = self.blur(self.pil_im_or.copy())
+			elif filtro == "Motion Blur":
+				img = self.motion_blur(self.pil_im_or.copy())
+			elif filtro == "Encontrar bordes":
+				img = self.edges(self.pil_im_or.copy())
+			elif filtro == "Sharpen":
+				img = self.sharpen(self.pil_im_or.copy())
+			elif filtro == "Emboss":
+				img = self.emboss(self.pil_im_or.copy())
+			elif filtro == "Mediana":
+				img = self.mediana(self.pil_im_or.copy())
+			elif filtro == "Letra a color":
+				img = self.letra_color(self.pil_im_or.copy())
+			elif filtro == "Letra tono de gris":
+				img = self.letra_tono_gris(self.pil_im_or.copy())
+			elif filtro == "Letras blanco y negro":
+				img = self.letras_bn(self.pil_im_or.copy())
+			elif filtro == "Letras en color":
+				img = self.letras_c(self.pil_im_or.copy())
+			elif filtro == "Texto definido":
+				img = self.texto_def(self.pil_im_or.copy(), self.input.text())
+			elif filtro == "Naipes":
+				img = self.naipes(self.pil_im_or.copy())
+			elif filtro == "Domino":
+				img = self.domino(self.pil_im_or.copy())
+			elif filtro == "Quitar marca de agua":
+				img = self.quitar_marca(self.pil_im_or.copy())
+			elif filtro == "Ecualizar imagen":
+				img = self.ecualizar_img(self.pil_im_or.copy())
+			elif filtro == "Semitonos A":
+				img = self.semitonosA(self.pil_im_or.copy(), int(self.line_edit_n.text()), int(self.line_edit_m.text()))
+			elif filtro == "Semitonos B":
+				img = self.semitonosB(self.pil_im_or.copy(), int(self.line_edit_n.text()), int(self.line_edit_m.text()))
+			elif filtro == "Semitonos C":
+				img = self.semitonosC(self.pil_im_or.copy(), int(self.line_edit_n.text()), int(self.line_edit_m.text()))
+			elif filtro == "Luz negra":
+				img = self.luz_negra(self.pil_im_or.copy(), int(self.input.text()))
+			elif filtro == "AT&T":
+				img = self.at_t(self.pil_im_or.copy())
+			elif filtro == "Recursiva /C":
+				img = self.recursiva_c(self.pil_im_or.copy(), int(self.line_edit_n.text()), int(self.line_edit_m.text()))
+			elif filtro == "Recursiva /T":
+				img = self.recursiva_b(self.pil_im_or.copy(), int(self.line_edit_n.text()), int(self.line_edit_m.text()))
+			elif filtro == "Rubik":
+				img = self.rubik(self.pil_im_or.copy(), self.num_colors_rubik)
+			elif filtro == "Random Dithering":
+				img = self.r_dithering(self.pil_im_or.copy())
+			elif filtro == "Fotomosaico":
+				img = self.fotomosaico(self.pil_im_or.copy())
+			img.show()
+			self.pixmap_fil = self.dame_pixmap(img)
+			self.label_img_fil.setPixmap(self.pixmap_fil)
+			self.label_img_fil.repaint()
+		#except Exception:
+		#	print("Error en algún parámetro.")
 
-		if filtro == "Tono de gris 1":
-			img = self.tono_gris1(self.pil_im_or.copy())
-		elif filtro == "Tono de gris 2":
-			img = self.tono_gris2(self.pil_im_or.copy())
-		elif filtro == "Tono de gris 3":
-			img = self.tono_gris3(self.pil_im_or.copy())
-		elif filtro == "Tono de gris 4":
-			img = self.tono_gris4(self.pil_im_or.copy())
-		elif filtro == "Tono de gris 5":
-			img = self.tono_gris5(self.pil_im_or.copy())
-		elif filtro == "Tono de gris 6":
-			img = self.tono_gris6(self.pil_im_or.copy())
-		elif filtro == "Tono de gris 7":
-			img = self.tono_gris7(self.pil_im_or.copy())
-		elif filtro == "Tono de gris 8":
-			img = self.tono_gris8(self.pil_im_or.copy())
-		elif filtro == "Brillo":
-			img = self.brillo(self.pil_im_or.copy(), self.slider.value())
-		elif filtro == "Mosaico":
-			img = self.mosaico(self.pil_im_or.copy(), int(self.line_edit_n.text()), int(self.line_edit_m.text()))
-		elif filtro == "Inverso":
-			img = self.inverso(self.pil_im_or.copy())
-		elif filtro == "Alto contraste":
-			img = self.alto_contraste(self.pil_im_or.copy())
-		elif filtro == "Blur":
-			img = self.blur(self.pil_im_or.copy())
-		elif filtro == "Motion Blur":
-			img = self.motion_blur(self.pil_im_or.copy())
-		elif filtro == "Encontrar bordes":
-			img = self.edges(self.pil_im_or.copy())
-		elif filtro == "Sharpen":
-			img = self.sharpen(self.pil_im_or.copy())
-		elif filtro == "Emboss":
-			img = self.emboss(self.pil_im_or.copy())
-		elif filtro == "Mediana":
-			img = self.mediana(self.pil_im_or.copy())
-		elif filtro == "Letra a color":
-			img = self.letra_color(self.pil_im_or.copy())
-		elif filtro == "Letra tono de gris":
-			img = self.letra_tono_gris(self.pil_im_or.copy())
-		elif filtro == "Letras blanco y negro":
-			img = self.letras_bn(self.pil_im_or.copy())
-		elif filtro == "Letras en color":
-			img = self.letras_c(self.pil_im_or.copy())
-		elif filtro == "Texto definido":
-			img = self.texto_def(self.pil_im_or.copy(), self.input.text())
-		elif filtro == "Naipes":
-			img = self.naipes(self.pil_im_or.copy())
-		elif filtro == "Domino":
-			img = self.domino(self.pil_im_or.copy())
-		elif filtro == "Quitar marca de agua":
-			img = self.quitar_marca(self.pil_im_or.copy())
-		img.show()
-		self.pixmap_fil = self.dame_pixmap(img)
-		self.label_img_fil.setPixmap(self.pixmap_fil)
-		self.label_img_fil.repaint()
 
-
-
+	def dame_img_PIL(self, path):
+		img = QImage(path)
+		buffer = QBuffer()
+		buffer.open(QBuffer.ReadWrite)
+		img.save(buffer, Path(path).suffix[1:])
+		return Image.open(io.BytesIO(buffer.data()))
 
 	def dame_pixmap(self, img):
 		qim = ImageQt(img)
@@ -301,7 +425,6 @@ class Filtros(QWidget):
 				gris = int(rojo(pixels[i,j]) * 0.3 + verde(pixels[i,j]) * 0.59 + azul(pixels[i,j]) * 0.11)
 				pixels[i,j] = (gris, gris, gris) #ponemos el nuevo color.
 		return img
-		
 
 	def tono_gris2(self, img):
 		pixels = img.load() 
@@ -311,7 +434,6 @@ class Filtros(QWidget):
 				gris = (rojo(pixels[i,j]) + verde(pixels[i,j]) + azul(pixels[i,j]))//3
 				pixels[i,j] = (gris, gris, gris) #ponemos el nuevo color.
 		return img
-		
 		
 
 	def tono_gris3(self, img):
@@ -324,7 +446,6 @@ class Filtros(QWidget):
 				gris = (maximo + minimo)//2
 				pixels[i,j] = (gris, gris, gris) #ponemos el nuevo color.
 		return img
-		
 		
 
 	def tono_gris4(self, img):
@@ -372,12 +493,15 @@ class Filtros(QWidget):
 		
 		
 	def brillo(self, img, cte):
-		pixels = img.load() 
+		pixels = img.load()
 		for i in range(img.size[0]):   
-			for j in range(img.size[1]):    
-				pixels[i,j] = (azul(pixels[i,j]) + cte, 
-				azul(pixels[i,j]) + cte, 
-				azul(pixels[i,j]) + cte)
+			for j in range(img.size[1]):
+				n_r = rojo(pixels[i,j]) + cte  
+				n_v = verde(pixels[i,j]) + cte
+				n_a = azul(pixels[i,j]) + cte
+				pixels[i,j] = (255 if (n_r >= 255) else (0 if (n_r <= 0) else n_r), 
+				255 if (n_v > 255) else (0 if (n_v < 0) else n_v), 
+				255 if (n_a > 255) else (0 if (n_a < 0) else n_a))
 		return img
 		
 		
@@ -475,7 +599,6 @@ class Filtros(QWidget):
 					pixels[i, j] = pixels[i, j]
 		return img
 		
-
 
 	def motion_blur(self, img):
 		pixels = img.load() 
@@ -867,6 +990,404 @@ class Filtros(QWidget):
 					pixels2[i,j] = (rojo(pixels2[i,j]), verde(pixels2[i,j]), azul(pixels2[i,j]))
 
 		return mosaico
+
+	def ecualizar_img(self, img):
+		gris = self.tono_gris1(img)
+		cdf = self.dame_cdf(gris)
+		n = gris.size[0]
+		m = gris.size[1]
+		print(cdf)
+		pixels = gris.load()
+		nm = n*m
+		cdf_min_k = min(cdf.keys(), key=(lambda k: cdf[k]))
+		cdf_min = cdf[cdf_min_k]
+		nm_cdf_min = nm - cdf_min
+		for i in range(n):
+			for j in range(m):
+				r = rojo(pixels[i,j])
+				nuevo_pix = int( ((cdf[str(r)]-cdf_min)/nm_cdf_min) * 255)
+				pixels[i,j] = (nuevo_pix, nuevo_pix, nuevo_pix)
+
+		return gris
+
+	def dame_cdf(self, img):
+		pixels = img.load()
+		cdf = dict()
+		val = []
+		n = img.size[0]
+		m = img.size[1]
+		for i in range(n):
+			for j in range(m):
+				key = str(rojo(pixels[i, j]))
+				if cdf == {}:
+					c_v = cuenta_val(int(key), pixels, n, m)
+					cdf.update([(key, c_v)])
+					val += [c_v]
+				elif key not in cdf:
+					value_prev = val[-1]
+					value_this = cuenta_val(int(key), pixels, n, m)
+					value_new = value_this + value_prev
+					cdf.update([(key, value_new)])
+					val += [value_new]
+		return cdf
+
+	def semitonosA(self, img, n, m):
+		gris = self.tono_gris1(img)
+		mosaico = self.mosaico(gris, n, m)
+		pixels = mosaico.load()
+		
+		nueva_img = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		a = []
+		size = n, m
+		for i in range(1, 11):
+			semitono = self.dame_img_PIL("semitonos/a"+ str(i)+ ".jpg")
+			semitono.thumbnail(size, Image.ANTIALIAS)
+			a.append(semitono)
+
+		for i in range(0, mosaico.size[0],n):
+			for j in range(0, mosaico.size[1],m):
+				prom = ((rojo(pixels[i, j]) + verde(pixels[i, j]) + azul(pixels[i, j]))//3)
+				if (prom >= 0 and prom < 25):
+					nueva_img.paste(a[0], (i,j))
+				elif (prom >= 25 and prom < 50): 
+					nueva_img.paste(a[1], (i,j))
+				elif (prom >= 50 and prom < 75): 
+					nueva_img.paste(a[2], (i,j))
+				elif (prom >= 75 and prom < 100): 
+					nueva_img.paste(a[3], (i,j))
+				elif (prom >= 100 and prom < 125): 
+					nueva_img.paste(a[4], (i,j))
+				elif (prom >= 125 and prom < 150): 
+					nueva_img.paste(a[5], (i,j))
+				elif (prom >= 150 and prom < 175): 
+					nueva_img.paste(a[6], (i,j))
+				elif (prom >= 175 and prom < 200): 
+					nueva_img.paste(a[7], (i,j))
+				elif (prom >= 200 and prom < 225): 
+					nueva_img.paste(a[8], (i,j))
+				elif (prom >= 225 and prom < 255): 
+					nueva_img.paste(a[9], (i,j))
+
+		return nueva_img
+
+	def semitonosB(self, img, n, m):
+		gris = self.tono_gris1(img)
+		mosaico = self.mosaico(gris, n, m)
+		pixels = mosaico.load()
+		
+		nueva_img = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		b = []
+		size = n, m
+		for i in range(10):
+			semitono = self.dame_img_PIL("semitonos/b"+ str(i)+ ".jpg")
+			semitono.thumbnail(size, Image.ANTIALIAS)
+			b.append(semitono)
+
+		for i in range(0, mosaico.size[0], n):
+			for j in range(0, mosaico.size[1], m):
+				prom = ((rojo(pixels[i, j]) + verde(pixels[i, j]) + azul(pixels[i, j]))//3)
+				if (prom >= 0 and prom < 25):
+					nueva_img.paste(b[9], (i,j))
+				elif (prom >= 25 and prom < 50): 
+					nueva_img.paste(b[8], (i,j))
+				elif (prom >= 50 and prom < 75): 
+					nueva_img.paste(b[7], (i,j))
+				elif (prom >= 75 and prom < 100): 
+					nueva_img.paste(b[6], (i,j))
+				elif (prom >= 100 and prom < 125): 
+					nueva_img.paste(b[5], (i,j))
+				elif (prom >= 125 and prom < 150): 
+					nueva_img.paste(b[4], (i,j))
+				elif (prom >= 150 and prom < 175): 
+					nueva_img.paste(b[3], (i,j))
+				elif (prom >= 175 and prom < 200): 
+					nueva_img.paste(b[2], (i,j))
+				elif (prom >= 200 and prom < 225): 
+					nueva_img.paste(b[1], (i,j))
+				elif (prom >= 225 and prom < 255): 
+					nueva_img.paste(b[0], (i,j))
+
+		return nueva_img
+
+	def semitonosC(self, img, n, m):
+		gris = self.tono_gris1(img)
+		mosaico = self.mosaico(gris, n, m)
+		pixels = mosaico.load()
+		
+		nueva_img = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		c = []
+		size = n, m
+		for i in range(5):
+			semitono = self.dame_img_PIL("semitonos/b"+ str(i)+ ".jpg")
+			semitono.thumbnail(size, Image.ANTIALIAS)
+			c.append(semitono)
+
+		for i in range(0, mosaico.size[0],n):
+			for j in range(0, mosaico.size[1],m):
+				prom = ((rojo(pixels[i, j]) + verde(pixels[i, j]) + azul(pixels[i, j]))//3)
+				if (prom >= 0 and prom < 50):
+					nueva_img.paste(c[4], (i,j))
+				elif (prom >= 50 and prom < 100):
+					nueva_img.paste(c[3], (i,j))
+				elif (prom >= 100 and prom < 150):
+					nueva_img.paste(c[2], (i,j))
+				elif (prom >= 150 and prom < 200): 
+					nueva_img.paste(c[1], (i,j))
+				elif (prom >= 200 and prom < 255): 
+					nueva_img.paste(c[0], (i,j))
+
+		return nueva_img
+
+	def luz_negra(self, img, peso):
+		pixels = img.load()
+		for i in range(img.size[0]):
+			for j in range(img.size[1]):
+				l = int(rojo(pixels[i,j]) * 0.3 + verde(pixels[i,j]) * 0.59 + azul(pixels[i,j]) * 0.11)
+				nuevo_r = abs(rojo(pixels[i,j]) - l) * peso
+				nuevo_v = abs(verde(pixels[i,j]) - l) * peso
+				nuevo_a = abs(azul(pixels[i,j]) - l) * peso
+				if nuevo_r > 256:
+					nuevo_r = 255
+				if nuevo_v > 256:
+					nuevo_v = 255
+				if nuevo_a > 256:
+					nuevo_a = 255
+				pixels[i,j] = (nuevo_r, nuevo_v, nuevo_a)
+
+		return img
+
+	def at_t(self, img):
+		gris = self.tono_gris1(img)
+		alto_c = self.alto_contraste(gris)
+		n_s = alto_c.size[0]//18
+		puntos = []
+		pixels = alto_c.load()
+		for i in range(alto_c.size[0]):
+			for j in range(0, alto_c.size[1]-n_s, n_s):
+				black = 0
+				for k in range(j, j+n_s):
+					if(int(rojo(pixels[i,k]) * 255) == 0):
+						black+=1
+
+				puntos = [False for i in range(n_s)]
+				n = black//2
+
+				if(black % 2 == 0):
+					m = n-1
+				else:
+					m = n
+
+				for l in range((n_s//2)-n, (n_s//2)+m):
+					puntos[l] = True
+
+				for k in range(j, j+n_s):
+					if(puntos[k-j]):
+						pixels[i, k] = (0, 0, 0)
+					else:
+						pixels[i, k] = (255, 255, 255)
+
+			pixels[i, j] = (0, 0, 0)
+
+		return alto_c
+
+	def recursiva_c(self, img, n, m):
+		img_t = self.mosaico(img, n, m)
+		nueva_img = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		size = n, m
+
+		pixels = img_t.load()
+		for i in range(0, img_t.size[0], n):
+			for j in range(0, img_t.size[1], m):
+				c_web = color_websafe_cercano(rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j]))
+				nueva_img.paste(c_web, (i-n,j-m, i, j))
+				
+		return nueva_img
+
+	def recursiva_b(self, img, n, m):
+		img_gris = self.tono_gris1(img)
+		img_t = self.mosaico(img, n, m)
+		nueva_img = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		size = n, m
+		t_g = []
+
+		for i in range(20):
+			img_b = self.brillo(img_gris.copy(), 127-(i*20))
+			img_b.thumbnail(size, Image.ANTIALIAS)
+			t_g.append(img_b)
+
+		pixels = img_t.load()
+		for i in range(0, img_t.size[0], n):
+			for j in range(0, img_t.size[1], m):
+				prom = ((rojo(pixels[i, j]) + verde(pixels[i, j]) + azul(pixels[i, j]))//3)
+				if (prom >= 0 and prom < 20):
+					nueva_img.paste(t_g[19], (i,j))
+				elif (prom >= 20 and prom < 30):
+					nueva_img.paste(t_g[18], (i,j))
+				elif (prom >= 30 and prom < 40):
+					nueva_img.paste(t_g[17], (i,j))
+				elif (prom >= 40 and prom < 50):
+					nueva_img.paste(t_g[16], (i,j))
+				elif (prom >= 50 and prom < 60):
+					nueva_img.paste(t_g[15], (i,j))
+				elif (prom >= 60 and prom < 70):
+					nueva_img.paste(t_g[14], (i,j))
+				elif (prom >= 70 and prom < 80):
+					nueva_img.paste(t_g[13], (i,j))
+				elif (prom >= 80 and prom < 90):
+					nueva_img.paste(t_g[12], (i,j))
+				elif (prom >= 90 and prom < 100): 
+					nueva_img.paste(t_g[11], (i,j))
+				elif (prom >= 100 and prom < 110): 
+					nueva_img.paste(t_g[10], (i,j))
+				elif (prom >= 110 and prom < 120): 
+					nueva_img.paste(t_g[9], (i,j))
+				elif (prom >= 120 and prom < 140): 
+					nueva_img.paste(t_g[8], (i,j))
+				elif (prom >= 140 and prom < 150): 
+					nueva_img.paste(t_g[7], (i,j))
+				elif (prom >= 150 and prom < 160): 
+					nueva_img.paste(t_g[6], (i,j))
+				elif (prom >= 160 and prom < 170): 
+					nueva_img.paste(t_g[5], (i,j))
+				elif (prom >= 170 and prom < 180): 
+					nueva_img.paste(t_g[4], (i,j))
+				elif (prom >= 180 and prom < 200): 
+					nueva_img.paste(t_g[3], (i,j))
+				elif (prom >= 200 and prom < 210): 
+					nueva_img.paste(t_g[2], (i,j))
+				elif (prom >= 210 and prom < 220): 
+					nueva_img.paste(t_g[1], (i,j))
+				elif (prom >= 220 and prom < 255): 
+					nueva_img.paste(t_g[0], (i,j))
+				
+		return nueva_img	
+
+	def rubik(self, img, n_colors):
+		nueva_img = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		pixels = img.load()
+
+		if n_colors == "256 colores":
+			for i in range(img.size[0]):
+				for j in range(img.size[1]):
+					c_web = color_websafe_cercano(rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j]))
+					nueva_img.paste(c_web, (i-1,j-1,i,j))
+		else:
+			for i in range(img.size[0]):
+				for j in range(img.size[1]):
+					c_rub = self.color_rubik(rojo(pixels[i,j]), verde(pixels[i,j]), azul(pixels[i,j]))
+					nueva_img.paste(c_rub, (i-1,j-1, i, j))
+				
+		return nueva_img
+
+
+	def color_rubik(self, r, g, b):
+		dist = []
+		for color_r in self.colores_r:
+			d = math.sqrt((r-color_r[0])**2 + (g-color_r[1])**2 + (b-color_r[2])**2)
+			dist.append(d)
+		closest = min(dist)
+		ind = dist.index(closest)
+		return self.colores_r[ind]
+
+
+	def r_dithering(self, img):
+		pixels = img.load()
+		for i in range(img.size[0]):
+			for j in range(img.size[1]):
+				v = rojo(pixels[i,j])
+				r = random.randint(0, 255)
+				if r > v:
+					pixels[i,j] = (0, 0, 0)
+				else:
+					pixels[i,j] = (255, 255, 255)
+		return img
+
+	def fotomosaico(self, img):
+		n = 9
+		m = 9
+		mosaico = self.mosaico(img, n, m)
+		if(self.imgs_paquete == [] and self.colores_paquete == []):
+			self.carga_imgs_fotomosaico(n, m)
+
+		nueva_img = Image.new("RGB", (img.size[0], img.size[1]), (255,255,255))
+		size = n, m
+
+		pixels = mosaico.load()
+		for i in range(0, img.size[0], n):
+			for j in range(0, img.size[1], m):
+				index = self.min_dist_euclidiana(pixels[i, j])
+				nueva_img.paste(self.imgs_paquete[index], (i,j))
+
+		return nueva_img
+
+	def carga_imgs_fotomosaico(self, n, m):
+		if(self.path_fotomosaico):
+			f = open(self.path_fotomosaico[0], "r")
+			size = n, m
+			for line in f:
+				tokens = line.split("/") # En el archivo de texto los valores RGB y el directorio están
+										 # separados por un /, con split nos deja los tokens que queremos.
+				self.colores_paquete.append((int(tokens[0]), int(tokens[1]), int(tokens[2])))
+				url = une_tokens(tokens[3:]) # Como el url tmb está separado por / los separa con split, acá hacemos 
+											# que la url sea correcta.
+				img_mos = Image.open(url)
+				img_mos.thumbnail(size, Image.ANTIALIAS)
+				self.imgs_paquete.append(img_mos)
+
+			f.close()
+		else:
+			print("SELECCIONE PRIMERO UN TEXTO CON LA INFO DEL PAQUETE DE IMGS")
+
+
+	def min_dist_euclidiana(self, pix):
+		dist = []
+		r = pix[0]
+		g = pix[1]
+		b = pix[2]
+		for color in self.colores_paquete:
+			d = math.sqrt((r-color[0])**2 + (g-color[1])**2 + (b-color[2])**2)
+			dist.append(d)
+		closest = min(dist)
+		ind = dist.index(closest)
+		return ind
+
+def une_tokens(tokens):
+	res = ""
+	for token in tokens:
+		res += token + "/"
+	return res[:-2]
+
+def cuenta_val(color, pixels, n, m):
+	cuenta = 0
+	for i in range(n):
+		for j in range(m):
+			if(rojo(pixels[i,j]) == color):
+				cuenta+=1
+	return cuenta
+
+def color_websafe_cercano(r, g, b):
+	r = int(round( ( r / 255.0 ) * 5 ) * 51)
+	g = int(round( ( g / 255.0 ) * 5 ) * 51)
+	b = int(round( ( b / 255.0 ) * 5 ) * 51)
+	return (r, g, b)
+
+def micap(col, img):
+	color = col[0]
+	pixels = img.load() 
+	if color == "rojo":
+		for i in range(img.size[0]): 
+			for j in range(img.size[1]):   
+				pixels[i,j] = (rojo(pixels[i,j]), 0, 0)
+	elif color == "verde":
+		for i in range(img.size[0]):  
+			for j in range(img.size[1]):  
+				pixels[i,j] = (0, verde(pixels[i,j]), 0) #ponemos el nuevo color.
+	else:
+		for i in range(img.size[0]):  
+			for j in range(img.size[1]):
+				pixels[i,j] = (0, 0, azul(pixels[i,j])) 
+	return img
+
 
 def es_gris(pixel):
 	if(rojo(pixel) == verde(pixel) and rojo(pixel) == azul(pixel) and azul(pixel) == verde(pixel)):
